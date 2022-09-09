@@ -4,41 +4,66 @@ using System.Text;
 using System.IO;
 using System.Threading;
 using System.Net;
+using System.Threading.Tasks;
 
 namespace TCP_Cient
 {
     class Program
     {
+        private static bool isClientActive = true;
+
         static void send()
         {
-            bool exitclient = false;
-            while (!exitclient)
+
+            while (isClientActive)
             {
-                TcpClient client =null;
+                TcpClient client = null;
                 NetworkStream stream = null;
                 try
                 {
-                    client = new TcpClient("192.168.2.58", 1302);
+                    client = new TcpClient("192.168.2.58", 1301);
+                    //Console.WriteLine(client);
                     stream = client.GetStream();
-                    while (!exitclient)
+                    while (isClientActive)
                     {
                         Console.WriteLine("Write a message: ");
                         string messageToSend = Console.ReadLine();
                         int byteCount = Encoding.ASCII.GetByteCount(messageToSend + 1);
                         byte[] sendData = Encoding.ASCII.GetBytes(messageToSend);
 
-
                         stream.Write(sendData, 0, sendData.Length);
-                        if(messageToSend == "exit")
+                         if (messageToSend == "file")
+                         {
+                             StringBuilder s1 = new StringBuilder();
+                             string dir = @"C:\Users\i2V\Desktop\";
+                             string newdir = @"C:\Users\i2V\Desktop\fh\";
+                             string file = "File1.txt";
+                             string path = $"{dir}{file}";
+                             string newpath = $"{newdir}{file}";
+                             using (TextReader tw = File.OpenText(newpath))
+                             {
+                                 Console.WriteLine(tw.ReadLine());
+                             }
+
+                             string[] data = File.ReadAllLines(newpath);
+
+                             foreach (string ss in data)
+                             {
+                                 s1.Append(ss);
+                             }
+                             Console.WriteLine($"string s1 is working : {s1.ToString()}");
+                             sendData = Encoding.ASCII.GetBytes(s1.ToString());
+                             stream.Write(sendData, 0, sendData.Length);
+                             continue;
+                         }
+
+                        if (messageToSend == "exit")
                         {
-                            exitclient = true;                           
+                            isClientActive = false;
+                            Console.WriteLine("You Left......");
                         }
                     }
-                    //StreamReader sr = new StreamReader(stream);
-                    //string response = sr.ReadLine();
-                    //Console.WriteLine(response);
-                   
-                    //Thread.Sleep(1000);
+
                 }
                 catch (Exception e)
                 {
@@ -46,12 +71,11 @@ namespace TCP_Cient
                 }
                 finally
                 {
-                    if(stream != null)
+                    if (stream != null)
                     {
                         stream.Close();
-                        
                     }
-                    if(client !=null)
+                    if (client != null)
                     {
                         client.Close();
                     }
@@ -61,35 +85,59 @@ namespace TCP_Cient
 
         static void recieve()
         {
-            while (true)
+            while (isClientActive)
             {
+                TcpListener listener = null;
+                TcpClient client = null;
+                NetworkStream stream = null;
                 try
                 {
-                    TcpListener listener = new TcpListener(IPAddress.Parse("192.168.2.37"), 1301);
+                    listener = new TcpListener(IPAddress.Any, 1310);
                     listener.Start();
                     //Console.WriteLine("Waiting for a connection.");
-                    TcpClient client = listener.AcceptTcpClient();
+                    client = listener.AcceptTcpClient();
                     //Console.WriteLine("User2 accepted.....\n");
-                    NetworkStream stream = client.GetStream();
+                    stream = client.GetStream();
                     StreamReader sr = new StreamReader(client.GetStream());
                     StreamWriter sw = new StreamWriter(client.GetStream());
-                    byte[] buffer = new byte[1024];
-                    int recv=stream.Read(buffer, 0, buffer.Length);
 
-                    if (recv > 0)
+                    while (isClientActive)
                     {
-                        string request = Encoding.UTF8.GetString(buffer, 0, recv);
-                        Console.WriteLine("User2 >> " + request);
+                        byte[] buffer = new byte[1024];
+                        int recv = stream.Read(buffer, 0, buffer.Length);
+                        if (recv > 0)
+                        {
+                            string request = Encoding.UTF8.GetString(buffer, 0, recv);
+                            if (request == "exit")
+                            {
+                                isClientActive = false;
+                                Console.WriteLine("User2 has left the chat.....");
+                            }
+                            else Console.WriteLine("User2 >> " + request);
+                        }
+
                     }
-                    stream.Close();
-                    client.Close();
-                    listener.Stop();
-                    Thread.Sleep(1000);
+
                 }
                 catch (Exception e)
                 {
                     Console.WriteLine("Something went wrong in stream.");
-                    //sw.WriteLine(e.ToString());
+
+                }
+                finally
+                {
+                    if (stream != null)
+                    {
+                        stream.Close();
+                    }
+                    if (client != null)
+                    {
+                        client.Close();
+                    }
+                    if (listener != null)
+                    {
+                        listener.Stop();
+                    }
                 }
             }
         }
@@ -100,6 +148,7 @@ namespace TCP_Cient
             Thread recievingThread = new Thread(recieve);
             sendingThread.Start();
             recievingThread.Start();
+
         }
 
     }
